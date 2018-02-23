@@ -1,0 +1,5 @@
+ci_secret_token.txt
+ci-builds/*
+!ci-builds/.keep
+ci-build-logs/*
+!ci-build-logs/.keep
