@@ -3,9 +3,9 @@ require "date"
 require "json"
 
 BUILDS_START = 30_000
-BUILDS_END = 43_344
+BUILDS_END = 43_614
 
-MONDAY = Date.parse("Monday")
+MONDAY = Date.parse("Monday") - 7 # script is supposed to run next monday to capture weekend errors
 WEEK1 = MONDAY..(MONDAY + 6)
 WEEK2 = (MONDAY - 7)..(MONDAY - 1)
 WEEK3 = (MONDAY - 14)..(MONDAY - 8)
@@ -16,6 +16,7 @@ CI_TOKEN = File.read("ci_secret_token.txt").tr("\n\r", "")
 
 CI_BUILDS_PATH = "ci-builds".freeze
 CI_BUILD_LOGS_PATH = "ci-build-logs".freeze
+CI_PROJECT_URL = "https://circleci.com/gh/shakacode/friendsandguests/".freeze
 
 class AnalyzeBuilds
   def start
@@ -44,13 +45,18 @@ class AnalyzeBuilds
 
       puts "#{qty5} #{qty4} #{qty3} #{qty2} #{qty1} #{spec}"
     end
+
+    logs_for(all_builds(WEEK1)).each do |log|
+      puts "\n#{CI_PROJECT_URL}#{log.build_num}"
+      log.failed_specs.each { |spec| puts spec }
+    end
   end
 
   def failed_specs_for(builds)
     failed_specs = {}
     logs_for(builds).each do |log|
-      log.data.scan(/rspec \.\/([^:]+:\d+.*\r\n)/) do |m|
-        failed_specs[m[0]] = (failed_specs[m[0]] || 0) + 1
+      log.failed_specs.each do |spec|
+        failed_specs[spec] = (failed_specs[spec] || 0) + 1
       end
     end
     failed_specs
@@ -111,6 +117,10 @@ class CILog
     @build_num = build_num
     @index = index
     @url = url
+  end
+
+  def failed_specs
+    @failed_specs ||= data.scan(/rspec \.\/([^:]+:\d+.*\r\n)/).flatten
   end
 
   def data

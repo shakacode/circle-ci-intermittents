@@ -9,6 +9,7 @@ Ruby script to analyze intermittent rspec failures based on CircleCI data.
 3. Filters multiple builds for same commit which run several times and were finally successfully `fixed`
 4. Downloads logs for failed builds per container.
 5. Filters & groups per individual specs
+6. Filters & groups per builds for recent week
 
 ## Setup
 
@@ -28,9 +29,17 @@ Note: Loading builds data for the first time can take several hours. So, try sma
 
 ## Output
 
+1. Failure quantities for last weeks
+2. Build containers with failed specs for the recent week
+
 ```
 0 0 0 1 0 spec/acceptance/xxx...rb:42 # Spec failure message
 2 0 2 1 3 spec/features/xxx...rb:4 # Spec failure message
+...
+
+https://circleci.com/gh/shakacode/xxx/42697
+spec/features/xxx...rb:18 # Spec failure message
+...
 ...
 ```
 
