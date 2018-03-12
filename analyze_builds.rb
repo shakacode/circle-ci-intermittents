@@ -3,7 +3,7 @@ require "date"
 require "json"
 
 BUILDS_START = 30_000
-BUILDS_END = 43_614
+BUILDS_END = 45_825
 
 MONDAY = Date.parse("Monday") - 7 # script is supposed to run next monday to capture weekend errors
 WEEK1 = MONDAY..(MONDAY + 6)
@@ -167,7 +167,7 @@ class CIBuild
   end
 
   def rspec_build?
-    data["build_parameters"]["CIRCLE_JOB"] == "rspec"
+    data.dig("build_parameters", "CIRCLE_JOB") == "rspec"
   end
 
   def canceled?
