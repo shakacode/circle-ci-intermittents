@@ -3,7 +3,6 @@ require "date"
 require "json"
 
 BUILDS_START = 30_000
-BUILDS_END = 45_825
 
 MONDAY = Date.parse("Monday") - 7 # script is supposed to run next monday to capture weekend errors
 WEEK1 = MONDAY..(MONDAY + 6)
@@ -20,6 +19,9 @@ CI_PROJECT_URL = "https://circleci.com/gh/shakacode/friendsandguests/".freeze
 
 class AnalyzeBuilds
   def start
+    $builds_end = latest_successfull_build_num
+    puts "Latest build: #{$builds_end}"
+
     puts "Loading CI builds..."
     all_builds
     puts "Finished"
@@ -47,7 +49,7 @@ class AnalyzeBuilds
     end
 
     logs_for(all_builds(WEEK1)).each do |log|
-      puts "\n#{CI_PROJECT_URL}#{log.build_num}"
+      puts "\n#{CI_PROJECT_URL}#{log.build_num} container:#{log.index}"
       log.failed_specs.each { |spec| puts spec }
     end
   end
@@ -100,11 +102,17 @@ class AnalyzeBuilds
 
   def all_builds(range = nil)
     builds = []
-    (BUILDS_START..BUILDS_END).each do |n|
+    (BUILDS_START..$builds_end).each do |n|
       build = CIBuild.new(n)
       builds << build if !build.canceled? && build.rspec_build? && (!range.nil? && range === build.run_date)
     end
     builds
+  end
+
+  def latest_successfull_build_num
+    url = "https://circleci.com/api/v1.1/project/github/shakacode/friendsandguests"
+    result = `curl -u #{CI_TOKEN}: #{url}`
+    JSON.parse(result)[0]["build_num"]
   end
 end
 
@@ -120,18 +128,22 @@ class CILog
   end
 
   def failed_specs
-    @failed_specs ||= data.scan(/rspec \.\/([^:]+:\d+.*\r\n)/).flatten
+    @failed_specs ||= data.scan(/rspec \.\/([^:]+:\d+.*)$/).flatten.map{|s| strip_escape_chars(s) }
   end
 
   def data
-    @data ||= load_log[0]["message"]
+    @data ||= if File.file?(manual_log_filename)
+      File.read(manual_log_filename)
+    else
+      load_log[0]["message"]
+    end
   end
 
   def load_log
     curl_get_log unless File.file?(log_filename)
     JSON.parse(File.read(log_filename))
   rescue StandardError => e
-    puts "\nError in #{log_filename}, please reload file"
+    puts "\nError in #{log_filename}, please reload file or owerride manually"
     raise e
   end
 
@@ -142,6 +154,14 @@ class CILog
 
   def log_filename
     "#{CI_BUILD_LOGS_PATH}/#{build_num}-#{index}"
+  end
+
+  def manual_log_filename
+    "#{log_filename}-manual"
+  end
+
+  def strip_escape_chars(string)
+    string.gsub(/\e\[(\d+)m|\r|\n/, "")
   end
 end
 
@@ -179,7 +199,7 @@ class CIBuild
   end
 
   def curl_get_build
-    puts "\nLoading build #{num}"
+    puts "\nLoading build #{num} (#{BUILDS_START}..#{$builds_end})"
     url = "https://circleci.com/api/v1.1/project/github/shakacode/friendsandguests/#{num}"
     `curl -u #{CI_TOKEN}: #{url} > #{build_filename}`
   end
